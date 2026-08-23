@@ -21,9 +21,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
       - name: Validate Python syntax
-        run: python -m py_compile giro_supervisores_final.py
+        run: |
+          python -m py_compile giro_supervisores_final.py
+          python -m py_compile giro_supervisores_launcher.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_final.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher.py
       - name: Verify EXE
         shell: powershell
         run: |
