@@ -20,8 +20,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
+      - name: Validate Python syntax
+        run: python -m py_compile giro_customs_final.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroCustoms giro_customs_pc.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroCustoms giro_customs_final.py
+      - name: Verify EXE
+        shell: powershell
+        run: |
+          if (!(Test-Path 'dist/GiroCustoms.exe')) { throw 'No se generó dist/GiroCustoms.exe' }
+          Get-Item 'dist/GiroCustoms.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
