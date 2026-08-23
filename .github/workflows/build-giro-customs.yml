@@ -1,4 +1,4 @@
-name: Build Giro Customs Windows EXE
+name: Build Giro de Supervisores Windows EXE
 
 on:
   push:
@@ -21,16 +21,16 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
       - name: Validate Python syntax
-        run: python -m py_compile giro_customs_final.py
+        run: python -m py_compile giro_supervisores_final.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroCustoms giro_customs_final.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_final.py
       - name: Verify EXE
         shell: powershell
         run: |
-          if (!(Test-Path 'dist/GiroCustoms.exe')) { throw 'No se generó dist/GiroCustoms.exe' }
-          Get-Item 'dist/GiroCustoms.exe'
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella.exe')) { throw 'No se genero el EXE' }
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: GiroCustoms-Windows
-          path: dist/GiroCustoms.exe
+          name: GiroDeSupervisores-NelsonCasella-Windows
+          path: dist/GiroDeSupervisores_NelsonCasella.exe
