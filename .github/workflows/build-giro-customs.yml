@@ -23,9 +23,9 @@ jobs:
       - name: Validate Python syntax
         run: |
           python -m py_compile giro_supervisores_final.py
-          python -m py_compile giro_supervisores_launcher_v2.py
+          python -m py_compile giro_supervisores_launcher_v3.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v2.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v3.py
       - name: Verify EXE
         shell: powershell
         run: |
