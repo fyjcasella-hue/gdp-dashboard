@@ -24,8 +24,9 @@ jobs:
         run: |
           python -m py_compile giro_supervisores_final.py
           python -m py_compile giro_supervisores_launcher_v4.py
+          python -m py_compile giro_supervisores_launcher_v5.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v4.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v5.py
       - name: Verify EXE
         shell: powershell
         run: |
