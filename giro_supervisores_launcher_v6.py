@@ -1,8 +1,8 @@
 # Giro de Supervisores - Nelson Casella
-# Corrección puntual: rotación de zonas secundarias.
-# Se conserva íntegramente la lógica estable de v5 y solo se agrega
-# una reparación local posterior a la generación para evitar que un
-# mismo agente repita la misma ZONA SECUNDARIA en días consecutivos.
+# Opción 2: rotación equilibrada de zonas secundarias.
+# Se conserva la lógica estable de v5 y, después de generar el mes,
+# se realizan intercambios locales entre agentes ya asignados al mismo día.
+# CASTRO queda completamente excluido de los intercambios.
 
 import tkinter as tk
 from giro_supervisores_launcher_v5 import GiroApp
@@ -11,13 +11,37 @@ from giro_supervisores_launcher_v5 import GiroApp
 _original_generate = GiroApp.generate
 
 
-def _repair_secondary_zone_rotation(self):
-    """Evita repeticiones consecutivas en la misma zona secundaria.
+def _zone_counts_before_day(cron, day, agent):
+    """Cantidad de veces que agent pasó por cada zona antes de day."""
+    counts = {z: 0 for z in range(1, 7)}
+    for d in sorted(cron):
+        if d >= day:
+            break
+        for z in range(1, 7):
+            if cron.get(d, {}).get(f'ZONA_{z}') == agent:
+                counts[z] += 1
+    return counts
 
-    No toca a CASTRO ni modifica cantidades de turnos, pagos, licencias,
-    descansos, aeropuerto ni la equidad general. Solo intercambia zonas
-    entre dos agentes ya asignados al mismo día cuando ello elimina una
-    repetición consecutiva de zona para ambos.
+
+def _would_repeat_previous_day(cron, day, zone_key, agent):
+    """Indica si agent quedaría en la misma zona que el día anterior."""
+    return cron.get(day - 1, {}).get(zone_key) == agent
+
+
+def _repair_secondary_zone_rotation(self):
+    """Aplica la opción 2 de rotación de zonas secundarias.
+
+    Prioridad:
+      1. CASTRO D. nunca se mueve.
+      2. Evitar que un agente repita la misma zona en días consecutivos.
+      3. Preferir el intercambio que coloque a cada agente en una zona
+         que haya realizado menos veces históricamente.
+      4. Si hay varias opciones equivalentes, elegir la que reduzca más
+         las repeticiones y mejore la dispersión de zonas.
+
+    Solo intercambia agentes que ya están asignados ese mismo día. Por eso
+    no altera disponibilidad, licencias, cantidad de turnos, horas, pagos
+    ni puestos de aeropuerto.
     """
     if not self.result:
         return 0
@@ -30,56 +54,81 @@ def _repair_secondary_zone_rotation(self):
         if day <= 1:
             continue
 
-        previous = cron.get(day - 1, {})
         today = cron.get(day, {})
-        zone_keys = [f'ZONA_{z}' for z in range(1, 7) if f'ZONA_{z}' in today]
+        zone_keys = [f'ZONA_{z}' for z in range(1, 7) if today.get(f'ZONA_{z}')]
 
-        # Si un agente repite exactamente la misma zona del día anterior,
-        # buscamos otro agente del mismo día con quien intercambiar zonas.
-        for key in list(zone_keys):
-            agent = today.get(key)
+        # Hacemos varias pasadas porque un intercambio puede permitir
+        # solucionar otra repetición del mismo día.
+        changed = True
+        while changed:
+            changed = False
 
-            # CASTRO conserva su giro original y nunca se mueve.
-            if not agent or agent == admin:
-                continue
-
-            if previous.get(key) != agent:
-                continue
-
-            for other_key in zone_keys:
-                if other_key == key:
+            for key in list(zone_keys):
+                agent = today.get(key)
+                if not agent or agent == admin:
                     continue
 
-                other_agent = today.get(other_key)
-                if not other_agent or other_agent == admin or other_agent == agent:
+                # Este agente no repite su zona anterior: no hay nada que corregir.
+                if not _would_repeat_previous_day(cron, day, key, agent):
                     continue
 
-                # El intercambio debe mejorar, no crear otra repetición:
-                # agent -> other_key y other_agent -> key.
-                if previous.get(other_key) == agent:
-                    continue
-                if previous.get(key) == other_agent:
-                    continue
+                current_zone = int(key.split('_')[1])
+                best = None
 
-                today[key], today[other_key] = other_agent, agent
-                repairs += 1
-                break
+                for other_key in zone_keys:
+                    if other_key == key:
+                        continue
+
+                    other_agent = today.get(other_key)
+                    if not other_agent or other_agent == admin or other_agent == agent:
+                        continue
+
+                    other_zone = int(other_key.split('_')[1])
+
+                    # Después del intercambio, ninguno debe quedar repetido
+                    # en la zona que recibe.
+                    if _would_repeat_previous_day(cron, day, other_key, agent):
+                        continue
+                    if _would_repeat_previous_day(cron, day, key, other_agent):
+                        continue
+
+                    # Historial previo: favorecemos la zona menos utilizada
+                    # por cada agente. Menor valor = mejor rotación.
+                    a_counts = _zone_counts_before_day(cron, day, agent)
+                    b_counts = _zone_counts_before_day(cron, day, other_agent)
+
+                    # También favorecemos que ambos salgan de su zona actual
+                    # si esa zona es la que vienen repitiendo.
+                    score = (
+                        a_counts[other_zone] + b_counts[current_zone],
+                        max(a_counts[other_zone], b_counts[current_zone]),
+                        a_counts[other_zone],
+                        b_counts[current_zone],
+                        abs(a_counts[other_zone] - b_counts[current_zone]),
+                    )
+
+                    if best is None or score < best[0]:
+                        best = (score, other_key, other_agent)
+
+                if best is not None:
+                    _, other_key, other_agent = best
+                    today[key], today[other_key] = other_agent, agent
+                    repairs += 1
+                    changed = True
+                    break
 
     if repairs:
-        # Recalcula el historial de zonas después de los intercambios.
-        # Los conteos de turnos y horas se mantienen, pero esta llamada
-        # deja todos los antecedentes internos perfectamente consistentes.
+        # Mantiene los contadores internos coherentes con el cronograma final.
         self.recalculate_counts()
 
     return repairs
 
 
 def _generate_with_secondary_zone_rotation(self):
-    # Ejecuta el generador probado de v5 sin alterar su lógica.
+    # Generación original de v5: no se modifica.
     _original_generate(self)
 
-    # Si la generación fue exitosa, corrige únicamente las repeticiones
-    # consecutivas de zonas secundarias.
+    # Aplicación posterior y local de la opción 2.
     if self.result:
         repairs = _repair_secondary_zone_rotation(self)
         if repairs:
