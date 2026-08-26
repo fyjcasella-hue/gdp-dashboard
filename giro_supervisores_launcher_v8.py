@@ -4,6 +4,7 @@
 # 1) Baja de agentes robusta.
 # 2) Historial independiente por mes: al cambiar de mes se guarda el anterior
 #    y se recupera el nuevo; si es un mes nuevo, calendario/restricciones comienzan limpios.
+# Build trigger: v8 workflow active.
 
 import os
 import pickle
@@ -120,7 +121,6 @@ def _refresh_calendar_month_aware(self):
             new_month = old_month
 
         if (new_year, new_month) != (old_year, old_month):
-            # Primero conserva exactamente el estado del mes que se abandona.
             _save_month(self, old_year, old_month, silent=True)
             if not _load_month(self, new_year, new_month):
                 _reset_new_month(self, new_year, new_month)
@@ -143,17 +143,14 @@ def _refresh_calendar_month_aware(self):
 
 
 def _remove_agent_robust(self):
-    """Baja robusta desde la selección visible, conservando historial."""
     sel = self.agent_tree.selection()
     if not sel:
-        # Si el Treeview tiene foco pero no selección, intentar usar el foco.
         focused = self.agent_tree.focus()
         if focused:
             sel = (focused,)
     if not sel:
         messagebox.showwarning('Baja', 'Seleccioná un agente de la lista de agentes activos.')
         return
-
     values = self.agent_tree.item(sel[0], 'values')
     if not values:
         messagebox.showwarning('Baja', 'No se pudo identificar el agente seleccionado.')
@@ -169,15 +166,12 @@ def _remove_agent_robust(self):
         return
     if not messagebox.askyesno('Confirmar baja', f'¿Dar de baja a {name}?\n\nNo se borrará su historial ni sus antecedentes mensuales.'):
         return
-
     self.active_agents.discard(name)
-    # Se conserva self.sup, licenses y unavailable para mantener el historial.
     self.refresh_agents()
     self.status.set(f'Agente dado de baja: {name}')
     _save_month(self, silent=True)
 
 
-# Persistencia automática sobre las operaciones que ya existen.
 _original_generate = GiroApp.generate
 _original_confirm = GiroApp.confirm_replacement
 _original_add = getattr(GiroApp, 'add_agent', None)
@@ -221,7 +215,6 @@ GiroApp.clear_agent_month = _wrap_persist(_original_clear_month)
 if __name__ == '__main__':
     root = tk.Tk()
     app = GiroApp(root)
-    # Recupera automáticamente el mes configurado al iniciar.
     if not _load_month(app, app.year, app.month):
         _reset_new_month(app, app.year, app.month)
     app.year_var.set(app.year)
