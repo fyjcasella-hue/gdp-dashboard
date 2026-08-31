@@ -1,7 +1,7 @@
 # Giro de Supervisores - Nelson Casella
 # v9: restricción puntual de destino por agente/día.
 # NO modifica la lógica estable de v8 salvo para respetar, al generar,
-# si un agente solo puede girar a zona primaria (aeropuerto) o secundaria.
+# si un agente solo puede girar a AEROPUERTO o a ZONA SECUNDARIA.
 
 import tkinter as tk
 from tkinter import ttk
@@ -11,6 +11,8 @@ from giro_supervisores_launcher_v8 import GiroApp, _save_month, _load_month, _re
 
 # ---------- Compatibilidad de estado ----------
 def _ensure_destination_maps(self):
+    # Se conserva la clave interna primary_only por compatibilidad con archivos ya guardados.
+    # En la interfaz y en la lógica funcional significa SOLO AEROPUERTO.
     if not hasattr(self, 'primary_only') or not isinstance(getattr(self, 'primary_only'), dict):
         self.primary_only = {a: set() for a in self.sup + [self.admin]}
     if not hasattr(self, 'secondary_only') or not isinstance(getattr(self, 'secondary_only'), dict):
@@ -30,19 +32,16 @@ _original_generate = GiroApp.generate
 
 def _calendar_tab_with_destination_modes(self):
     _original_calendar_tab(self)
-    # El calendario base crea self.cal_mode y los radiobuttons LICENCIA/NO DISPONIBLE.
-    # Agregamos dos modos más sin tocar los controles existentes.
     top = self.cal_frame.master.winfo_children()[0] if self.cal_frame.master.winfo_children() else None
     if isinstance(top, ttk.Frame):
-        ttk.Radiobutton(top, text='SOLO ZONA PRIMARIA', value='SOLO PRIMARIA', variable=self.cal_mode, command=self.show_calendar).pack(side='left', padx=6)
+        ttk.Radiobutton(top, text='SOLO AEROPUERTO', value='SOLO AEROPUERTO', variable=self.cal_mode, command=self.show_calendar).pack(side='left', padx=6)
         ttk.Radiobutton(top, text='SOLO ZONA SECUNDARIA', value='SOLO SECUNDARIA', variable=self.cal_mode, command=self.show_calendar).pack(side='left', padx=6)
 
 
 def _show_calendar_with_destination_modes(self):
     _ensure_destination_maps(self)
-    # Reutilizamos exactamente la visualización estable para licencia/no disponible.
     mode = self.cal_mode.get() if hasattr(self, 'cal_mode') else 'LICENCIA'
-    if mode not in ('SOLO PRIMARIA', 'SOLO SECUNDARIA'):
+    if mode not in ('SOLO AEROPUERTO', 'SOLO SECUNDARIA'):
         return _original_show_calendar(self)
 
     if not hasattr(self, 'cal_frame'):
@@ -54,7 +53,7 @@ def _show_calendar_with_destination_modes(self):
     if not agent:
         return
 
-    primary = self.primary_only.setdefault(agent, set())
+    airport_only = self.primary_only.setdefault(agent, set())
     secondary = self.secondary_only.setdefault(agent, set())
     licenses = self.licenses.setdefault(agent, set())
     unavailable = self.unavailable.setdefault(agent, set())
@@ -72,27 +71,21 @@ def _show_calendar_with_destination_modes(self):
         is_holiday = d in self.holidays
         is_license = d in licenses
         is_unavailable = d in unavailable
-        is_primary = d in primary
+        is_airport = d in airport_only
         is_secondary = d in secondary
 
         if is_license:
-            bg = '#F7B7B7'
-            suffix = 'LICENCIA'
+            bg = '#F7B7B7'; suffix = 'LICENCIA'
         elif is_unavailable:
-            bg = '#C9D7FF'
-            suffix = 'NO DISP.'
-        elif is_primary:
-            bg = '#D6EAF8'
-            suffix = 'SOLO PRIM.'
+            bg = '#C9D7FF'; suffix = 'NO DISP.'
+        elif is_airport:
+            bg = '#D6EAF8'; suffix = 'SOLO AERO.'
         elif is_secondary:
-            bg = '#D5F5E3'
-            suffix = 'SOLO SEC.'
+            bg = '#D5F5E3'; suffix = 'SOLO SEC.'
         elif is_holiday:
-            bg = '#FFE3A3'
-            suffix = 'FERIADO'
+            bg = '#FFE3A3'; suffix = 'FERIADO'
         else:
-            bg = '#F3F5F7'
-            suffix = ''
+            bg = '#F3F5F7'; suffix = ''
 
         text = str(d) + (f'\n{suffix}' if suffix else '')
         r = i // 7 + 1
@@ -101,29 +94,28 @@ def _show_calendar_with_destination_modes(self):
 
     for c in range(7):
         self.cal_frame.columnconfigure(c, weight=1)
-    self.cal_help.set(f'{agent}: modo {mode}. Azul claro = solo primaria · Verde = solo secundaria. Estas restricciones son independientes de feriados y se guardan por mes.')
+    self.cal_help.set(f'{agent}: modo {mode}. Azul claro = solo Aeropuerto · Verde = solo Zona Secundaria. Estas restricciones son independientes de feriados y se guardan por mes.')
 
 
 def _toggle_day_with_destination_modes(self, d):
     _ensure_destination_maps(self)
     mode = self.cal_mode.get() if hasattr(self, 'cal_mode') else 'LICENCIA'
-    if mode not in ('SOLO PRIMARIA', 'SOLO SECUNDARIA'):
+    if mode not in ('SOLO AEROPUERTO', 'SOLO SECUNDARIA'):
         return _original_toggle_day(self, d)
 
     agent = self.cal_agent.get()
     if not agent:
         return
 
-    primary = self.primary_only.setdefault(agent, set())
+    airport_only = self.primary_only.setdefault(agent, set())
     secondary = self.secondary_only.setdefault(agent, set())
-    target = primary if mode == 'SOLO PRIMARIA' else secondary
-    opposite = secondary if mode == 'SOLO PRIMARIA' else primary
+    target = airport_only if mode == 'SOLO AEROPUERTO' else secondary
+    opposite = secondary if mode == 'SOLO AEROPUERTO' else airport_only
 
     if d in target:
         target.remove(d)
     else:
         target.add(d)
-        # No pueden coexistir 'solo primaria' y 'solo secundaria' el mismo día.
         opposite.discard(d)
     self.show_calendar()
     try:
@@ -140,15 +132,7 @@ def _refresh_agents_with_destination_maps(self):
 # ---------- Generación: respetar destino permitido ----------
 def _generate_with_destination_restrictions(self, *args, **kwargs):
     _ensure_destination_maps(self)
-
-    # Interceptamos temporalmente all_agents/sup para que la lógica existente de v8
-    # siga intacta y solo descarte candidatos según el destino del día.
-    original_all_agents = self.all_agents
     original_sup = list(self.sup)
-
-    # Guardamos una función auxiliar que la generación base puede consultar mediante
-    # el filtro posterior local. Se aplica después de generar, reparando únicamente
-    # asignaciones que violen SOLO PRIMARIA/SOLO SECUNDARIA.
     out = _original_generate(self, *args, **kwargs)
 
     if not self.result:
@@ -159,10 +143,11 @@ def _generate_with_destination_restrictions(self, *args, **kwargs):
     admin = self.admin
     changed = False
 
+    # primary_only = SOLO AEROPUERTO (nombre interno conservado por compatibilidad).
     for day in sorted(cron):
         today = cron[day]
 
-        # 1) Quien está marcado SOLO SECUNDARIA no puede quedar en aeropuerto.
+        # SOLO ZONA SECUNDARIA: no puede quedar en Aeropuerto.
         for key in [k for k in list(today) if k.startswith('AERO_')]:
             agent = today.get(key)
             if not agent or day not in self.secondary_only.get(agent, set()):
@@ -175,12 +160,11 @@ def _generate_with_destination_restrictions(self, *args, **kwargs):
                 and a not in today.values()
             ]
             if candidates:
-                # Usa el score ya probado del programa.
                 candidates.sort(key=lambda a: self.candidate_score(a, key, None))
                 today[key] = candidates[0]
                 changed = True
 
-        # 2) Quien está marcado SOLO PRIMARIA no puede quedar en zona secundaria.
+        # SOLO AEROPUERTO: no puede quedar en Zona Secundaria.
         zone_keys = [k for k in list(today) if k.startswith('ZONA_')]
         for key in zone_keys:
             agent = today.get(key)
@@ -196,7 +180,6 @@ def _generate_with_destination_restrictions(self, *args, **kwargs):
                 and a not in today.values()
             ]
             if candidates:
-                # Determina el tipo SEC correcto para el score existente.
                 shift = self.turn_from_key(day, key)
                 sec_key = 'SEC_100' if self.pay_type(day, shift, False) == '100%' else 'SEC_50'
                 candidates.sort(key=lambda a: self.candidate_score(a, sec_key, zone))
@@ -206,7 +189,7 @@ def _generate_with_destination_restrictions(self, *args, **kwargs):
     if changed:
         self.recalculate_counts()
         self.refresh_schedule()
-        self.status.set('Cronograma generado respetando restricciones SOLO PRIMARIA / SOLO SECUNDARIA.')
+        self.status.set('Cronograma generado respetando restricciones SOLO AEROPUERTO / SOLO ZONA SECUNDARIA.')
         try:
             _save_month(self, silent=True)
         except Exception:
@@ -233,6 +216,7 @@ _original_reset_new_month = v8._reset_new_month
 def _state_from_app_v9(self):
     _ensure_destination_maps(self)
     state = _original_state_from_app(self)
+    # Clave histórica primary_only = SOLO AEROPUERTO.
     state['primary_only'] = {k: set(v) for k, v in self.primary_only.items()}
     state['secondary_only'] = {k: set(v) for k, v in self.secondary_only.items()}
     return state
@@ -268,7 +252,6 @@ if __name__ == '__main__':
     root = tk.Tk()
     app = GiroApp(root)
     _ensure_destination_maps(app)
-    # La recuperación mensual de v8 sigue siendo la misma, extendida con los dos mapas nuevos.
     if not _load_month_v9(app, app.year, app.month):
         _reset_new_month_v9(app, app.year, app.month)
     app.year_var.set(app.year)
