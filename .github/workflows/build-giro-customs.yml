@@ -36,8 +36,9 @@ jobs:
           python -m py_compile giro_supervisores_launcher_v10.py
           python -m py_compile giro_supervisores_launcher_v11.py
           python -m py_compile giro_supervisores_launcher_v12.py
+          python -m py_compile giro_supervisores_launcher_v13.py
       - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --icon assets/nelson_casella.ico --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v12.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon assets/nelson_casella.ico --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v13.py
       - name: Verify EXE
         shell: powershell
         run: |
