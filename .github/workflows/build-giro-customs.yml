@@ -23,8 +23,11 @@ jobs:
       - name: Prepare Nelson Casella icon
         shell: powershell
         run: |
-          python -c "import base64,pathlib; p=pathlib.Path(r'assets/nelson_casella_logo.b64'); s=''.join(p.read_text(encoding='utf-8-sig').split()); pad=(-len(s))%4; pathlib.Path(r'assets/nelson_casella_logo.png').write_bytes(base64.b64decode(s + '='*pad, validate=False))"
-          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png').convert('RGBA'); im.thumbnail((256,256), Image.LANCZOS); canvas=Image.new('RGBA',(256,256),(0,0,0,0)); x=(256-im.width)//2; y=(256-im.height)//2; canvas.alpha_composite(im,(x,y)); canvas.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png').convert('RGBA'); im.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(96,96),(128,128)])"
+      - name: Validate icon resource
+        shell: powershell
+        run: |
+          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png'); print('PNG OK:', im.size, im.mode); ico=Image.open(r'assets/nelson_casella.ico'); print('ICO OK:', ico.size)"
       - name: Validate Python syntax
         run: |
           python -m py_compile giro_supervisores_final.py
