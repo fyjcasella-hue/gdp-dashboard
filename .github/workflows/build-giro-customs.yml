@@ -24,8 +24,8 @@ jobs:
         shell: powershell
         run: |
           $b64 = (Get-Content 'assets/nelson_casella_logo.b64' -Raw).Trim()
-          [IO.File]::WriteAllBytes('assets/nelson_casella_logo.jpg', [Convert]::FromBase64String($b64))
-          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.jpg').convert('RGBA'); im.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+          [IO.File]::WriteAllBytes('assets/nelson_casella_logo.png', [Convert]::FromBase64String($b64))
+          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png').convert('RGBA'); im.thumbnail((256,256), Image.LANCZOS); canvas=Image.new('RGBA',(256,256),(0,0,0,0)); x=(256-im.width)//2; y=(256-im.height)//2; canvas.alpha_composite(im,(x,y)); canvas.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
       - name: Validate Python syntax
         run: |
           python -m py_compile giro_supervisores_final.py
@@ -37,19 +37,20 @@ jobs:
           python -m py_compile giro_supervisores_launcher_v11.py
           python -m py_compile giro_supervisores_launcher_v12.py
           python -m py_compile giro_supervisores_launcher_v13.py
+          python -m py_compile giro_supervisores_launcher_v14.py
       - name: Build EXE with embedded icon
-        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --name GiroDeSupervisores_NelsonCasella_v13 giro_supervisores_launcher_v13.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v14 giro_supervisores_launcher_v14.py
       - name: Verify EXE and create stable-name copy
         shell: powershell
         run: |
-          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v13.exe')) { throw 'No se genero el EXE' }
-          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v13.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
-          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v13.exe'
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v14.exe')) { throw 'No se genero el EXE' }
+          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v14.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v14.exe'
           Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: GiroDeSupervisores-NelsonCasella-Windows
           path: |
-            dist/GiroDeSupervisores_NelsonCasella_v13.exe
+            dist/GiroDeSupervisores_NelsonCasella_v14.exe
             dist/GiroDeSupervisores_NelsonCasella.exe
