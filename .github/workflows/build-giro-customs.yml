@@ -23,8 +23,7 @@ jobs:
       - name: Prepare Nelson Casella icon
         shell: powershell
         run: |
-          $b64 = (Get-Content 'assets/nelson_casella_logo.b64' -Raw).Trim()
-          [IO.File]::WriteAllBytes('assets/nelson_casella_logo.png', [Convert]::FromBase64String($b64))
+          python -c "import base64,pathlib; p=pathlib.Path(r'assets/nelson_casella_logo.b64'); s=''.join(p.read_text(encoding='utf-8-sig').split()); pad=(-len(s))%4; pathlib.Path(r'assets/nelson_casella_logo.png').write_bytes(base64.b64decode(s + '='*pad, validate=False))"
           python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png').convert('RGBA'); im.thumbnail((256,256), Image.LANCZOS); canvas=Image.new('RGBA',(256,256),(0,0,0,0)); x=(256-im.width)//2; y=(256-im.height)//2; canvas.alpha_composite(im,(x,y)); canvas.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
       - name: Validate Python syntax
         run: |
