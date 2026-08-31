@@ -37,15 +37,19 @@ jobs:
           python -m py_compile giro_supervisores_launcher_v11.py
           python -m py_compile giro_supervisores_launcher_v12.py
           python -m py_compile giro_supervisores_launcher_v13.py
-      - name: Build EXE
-        run: pyinstaller --noconfirm --clean --onefile --windowed --icon assets/nelson_casella.ico --name GiroDeSupervisores_NelsonCasella giro_supervisores_launcher_v13.py
-      - name: Verify EXE
+      - name: Build EXE with embedded icon
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --name GiroDeSupervisores_NelsonCasella_v13 giro_supervisores_launcher_v13.py
+      - name: Verify EXE and create stable-name copy
         shell: powershell
         run: |
-          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella.exe')) { throw 'No se genero el EXE' }
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v13.exe')) { throw 'No se genero el EXE' }
+          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v13.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v13.exe'
           Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: GiroDeSupervisores-NelsonCasella-Windows
-          path: dist/GiroDeSupervisores_NelsonCasella.exe
+          path: |
+            dist/GiroDeSupervisores_NelsonCasella_v13.exe
+            dist/GiroDeSupervisores_NelsonCasella.exe
