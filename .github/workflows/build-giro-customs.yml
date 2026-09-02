@@ -1,0 +1,58 @@
+name: Build Giro de Supervisores Windows EXE
+
+on:
+  push:
+    branches: [giro-customs-pc]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pillow
+      - name: Prepare Nelson Casella icon
+        shell: powershell
+        run: |
+          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png').convert('RGBA'); im.save(r'assets/nelson_casella.ico', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(96,96),(128,128)])"
+      - name: Validate icon resource
+        shell: powershell
+        run: |
+          python -c "from PIL import Image; im=Image.open(r'assets/nelson_casella_logo.png'); print('PNG OK:', im.size, im.mode); ico=Image.open(r'assets/nelson_casella.ico'); print('ICO OK:', ico.size)"
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile giro_supervisores_final.py
+          python -m py_compile giro_supervisores_launcher_v6.py
+          python -m py_compile giro_supervisores_launcher_v7.py
+          python -m py_compile giro_supervisores_launcher_v8.py
+          python -m py_compile giro_supervisores_launcher_v9.py
+          python -m py_compile giro_supervisores_launcher_v10.py
+          python -m py_compile giro_supervisores_launcher_v11.py
+          python -m py_compile giro_supervisores_launcher_v12.py
+          python -m py_compile giro_supervisores_launcher_v13.py
+          python -m py_compile giro_supervisores_launcher_v14.py
+      - name: Build EXE with embedded icon
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v14 giro_supervisores_launcher_v14.py
+      - name: Verify EXE and create stable-name copy
+        shell: powershell
+        run: |
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v14.exe')) { throw 'No se genero el EXE' }
+          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v14.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v14.exe'
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: GiroDeSupervisores-NelsonCasella-Windows
+          path: |
+            dist/GiroDeSupervisores_NelsonCasella_v14.exe
+            dist/GiroDeSupervisores_NelsonCasella.exe
