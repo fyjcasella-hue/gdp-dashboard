@@ -8,6 +8,8 @@
 #    Si Windows no permite escribir allí, usa APPDATA como respaldo seguro.
 # 3) Migra automáticamente antecedentes previos desde APPDATA al nuevo almacenamiento.
 # 4) Aplica el icono Nelson Casella también a la ventana del programa.
+# 5) Corrige la baja de agentes: la lista visible y el motor consideran únicamente
+#    agentes activos, conservando el registro histórico del agente dado de baja.
 
 import os
 import pickle
@@ -97,6 +99,26 @@ def _migrate_previous_history():
 # Todas las funciones mensuales heredadas de v8/v9 pasan a usar esta carpeta.
 v8._data_dir = _data_dir_v14
 v7._data_dir = _data_dir_v14
+
+
+# -----------------------------------------------------------------------------
+# AGENTES ACTIVOS / BAJA
+# -----------------------------------------------------------------------------
+def _all_agents_active_only(self):
+    """Devuelve únicamente agentes actualmente activos, respetando el orden histórico.
+
+    La lista self.sup conserva al agente para antecedentes y posibles reactivaciones,
+    pero una baja lo quita de self.active_agents. La implementación base volvía a
+    mostrar todos los nombres de self.sup y por eso la baja parecía no funcionar.
+    """
+    agents = [a for a in self.sup if a in self.active_agents]
+    if self.admin in self.active_agents and self.admin not in agents:
+        agents.append(self.admin)
+    return agents
+
+
+# Corrección puntual: no borra antecedentes ni altera cronogramas históricos.
+GiroApp.all_agents = _all_agents_active_only
 
 
 # -----------------------------------------------------------------------------
