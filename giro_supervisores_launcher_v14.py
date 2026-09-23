@@ -8,8 +8,8 @@
 #    Si Windows no permite escribir allí, usa APPDATA como respaldo seguro.
 # 3) Migra automáticamente antecedentes previos desde APPDATA al nuevo almacenamiento.
 # 4) Aplica el icono Nelson Casella también a la ventana del programa.
-# 5) Corrige la baja de agentes: la lista visible y el motor consideran únicamente
-#    agentes activos, conservando el registro histórico del agente dado de baja.
+# 5) Baja de agentes definitiva: se elimina del plantel operativo actual y de todas
+#    las listas de selección, sin tocar cronogramas históricos ya guardados.
 
 import os
 import pickle
@@ -92,11 +92,9 @@ def _migrate_previous_history():
                 if not dst.exists():
                     shutil.copy2(p, dst)
         except Exception:
-            # La migración no debe impedir que el programa abra.
             pass
 
 
-# Todas las funciones mensuales heredadas de v8/v9 pasan a usar esta carpeta.
 v8._data_dir = _data_dir_v14
 v7._data_dir = _data_dir_v14
 
@@ -105,20 +103,79 @@ v7._data_dir = _data_dir_v14
 # AGENTES ACTIVOS / BAJA
 # -----------------------------------------------------------------------------
 def _all_agents_active_only(self):
-    """Devuelve únicamente agentes actualmente activos, respetando el orden histórico.
-
-    La lista self.sup conserva al agente para antecedentes y posibles reactivaciones,
-    pero una baja lo quita de self.active_agents. La implementación base volvía a
-    mostrar todos los nombres de self.sup y por eso la baja parecía no funcionar.
-    """
+    """Plantel operativo visible: solo agentes realmente activos."""
     agents = [a for a in self.sup if a in self.active_agents]
     if self.admin in self.active_agents and self.admin not in agents:
         agents.append(self.admin)
     return agents
 
 
-# Corrección puntual: no borra antecedentes ni altera cronogramas históricos.
+def _remove_agent_definitive(self):
+    """Da de baja al agente del plantel operativo actual y persiste el cambio.
+
+    Los archivos .giro históricos de otros meses no se tocan. El cronograma ya
+    generado del mes tampoco se reescribe: la baja afecta nuevas asignaciones.
+    """
+    sel = self.agent_tree.selection()
+    if not sel:
+        focused = self.agent_tree.focus()
+        if focused:
+            sel = (focused,)
+    if not sel:
+        messagebox.showwarning('Baja', 'Seleccioná un agente de la lista de agentes activos.')
+        return
+
+    values = self.agent_tree.item(sel[0], 'values')
+    if not values:
+        messagebox.showwarning('Baja', 'No se pudo identificar el agente seleccionado.')
+        return
+
+    name = str(values[0]).strip()
+    if not name:
+        return
+    if name == self.admin:
+        messagebox.showwarning('Baja', 'El administrador fijo debe reemplazarse antes de darlo de baja.')
+        return
+    if name not in self.active_agents and name not in self.sup:
+        messagebox.showinfo('Baja', f'{name} ya no forma parte del plantel activo.')
+        self.refresh_agents()
+        return
+
+    if not messagebox.askyesno(
+        'Confirmar baja',
+        f'¿Dar de baja a {name}?\n\nEl agente dejará de aparecer y no participará en nuevas asignaciones.\nSus antecedentes de meses ya guardados se conservan.'
+    ):
+        return
+
+    # La corrección anterior solo quitaba el nombre de active_agents. Eso permitía
+    # que otras capas que recorren self.sup pudieran volver a mostrarlo. Ahora la
+    # baja se refleja en ambas estructuras operativas.
+    self.active_agents.discard(name)
+    self.sup = [a for a in self.sup if a != name]
+
+    # Se conservan licenses/unavailable/primary_only/secondary_only si ya existían:
+    # son antecedentes y permiten recuperar correctamente meses históricos.
+    self.refresh_agents()
+    self.show_calendar()
+
+    saved = False
+    try:
+        saved = bool(v8._save_month(self, silent=True))
+    except Exception:
+        saved = False
+
+    if saved:
+        self.status.set(f'Agente dado de baja: {name}. Cambio guardado.')
+    else:
+        self.status.set(f'Agente dado de baja: {name}.')
+        messagebox.showwarning(
+            'Baja',
+            'La baja se aplicó en pantalla, pero no se pudo guardar el estado mensual automáticamente.'
+        )
+
+
 GiroApp.all_agents = _all_agents_active_only
+GiroApp.remove_agent = _remove_agent_definitive
 
 
 # -----------------------------------------------------------------------------
@@ -148,7 +205,6 @@ def _load_history_file(self, path):
         if version not in (1, 2, 3, 4):
             raise ValueError(f'Versión de antecedentes incompatible: {version}')
 
-        # Restauración completa compatible con v9+.
         self.sup = list(state.get('sup', self.sup))
         self.admin = state.get('admin', self.admin)
         self.active_agents = set(state.get('active_agents', self.sup + [self.admin]))
@@ -256,8 +312,6 @@ def _history_v14(self):
     ttk.Button(buttons, text='CERRAR', command=win.destroy).pack(side='right')
 
 
-# El botón creado originalmente por v7 resuelve v7._history al ejecutarse,
-# por eso reemplazar esa función corrige el historial sin reconstruir la interfaz.
 v7._history = _history_v14
 GiroApp.show_month_history = _history_v14
 
@@ -287,7 +341,6 @@ if __name__ == '__main__':
     _apply_window_icon(root)
     app = GiroApp(root)
 
-    # Recupera el mes configurado al iniciar, si ya existe.
     current = v8._month_path(app.year, app.month)
     if current.exists():
         _load_history_file(app, current)
