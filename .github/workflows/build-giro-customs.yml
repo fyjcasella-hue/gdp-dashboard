@@ -41,19 +41,20 @@ jobs:
           python -m py_compile giro_supervisores_launcher_v13.py
           python -m py_compile giro_supervisores_launcher_v14.py
           python -m py_compile giro_supervisores_launcher_v15.py
+          python -m py_compile giro_supervisores_launcher_v16.py
       - name: Build EXE with embedded icon
-        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v15 giro_supervisores_launcher_v15.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v16 giro_supervisores_launcher_v16.py
       - name: Verify EXE and create stable-name copy
         shell: powershell
         run: |
-          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v15.exe')) { throw 'No se genero el EXE' }
-          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v15.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
-          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v15.exe'
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v16.exe')) { throw 'No se genero el EXE' }
+          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v16.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v16.exe'
           Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: GiroDeSupervisores-NelsonCasella-Windows
           path: |
-            dist/GiroDeSupervisores_NelsonCasella_v15.exe
+            dist/GiroDeSupervisores_NelsonCasella_v16.exe
             dist/GiroDeSupervisores_NelsonCasella.exe
