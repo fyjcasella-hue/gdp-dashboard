@@ -42,19 +42,23 @@ jobs:
           python -m py_compile giro_supervisores_launcher_v14.py
           python -m py_compile giro_supervisores_launcher_v15.py
           python -m py_compile giro_supervisores_launcher_v16.py
+          python -m py_compile giro_supervisores_launcher_v17.py
+      - name: Validate proportional airport target helper
+        run: |
+          python -c "import giro_supervisores_launcher_v17 as v; t=v._proportional_targets({'A':30,'B':30,'C':15},15); assert sum(t.values())==15 and t['A']==6 and t['B']==6 and t['C']==3, t; print('Airport proportional target OK:', t)"
       - name: Build EXE with embedded icon
-        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v16 giro_supervisores_launcher_v16.py
+        run: pyinstaller --noconfirm --clean --onefile --windowed --icon=assets/nelson_casella.ico --add-data "assets/nelson_casella.ico;assets" --name GiroDeSupervisores_NelsonCasella_v17 giro_supervisores_launcher_v17.py
       - name: Verify EXE and create stable-name copy
         shell: powershell
         run: |
-          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v16.exe')) { throw 'No se genero el EXE' }
-          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v16.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
-          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v16.exe'
+          if (!(Test-Path 'dist/GiroDeSupervisores_NelsonCasella_v17.exe')) { throw 'No se genero el EXE' }
+          Copy-Item 'dist/GiroDeSupervisores_NelsonCasella_v17.exe' 'dist/GiroDeSupervisores_NelsonCasella.exe' -Force
+          Get-Item 'dist/GiroDeSupervisores_NelsonCasella_v17.exe'
           Get-Item 'dist/GiroDeSupervisores_NelsonCasella.exe'
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: GiroDeSupervisores-NelsonCasella-Windows
           path: |
-            dist/GiroDeSupervisores_NelsonCasella_v16.exe
+            dist/GiroDeSupervisores_NelsonCasella_v17.exe
             dist/GiroDeSupervisores_NelsonCasella.exe
